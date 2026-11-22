@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
-<title>Market Insider AI — V1.6 Research Diagnostics</title>
+<title>Market Insider AI — V1.8 Walk-Forward Robustness Research</title>
 <style>
 :root{color-scheme:dark;--bg:#080e19;--panel:#111b2b;--panel2:#172338;--line:#26364d;--text:#edf3fb;--muted:#91a2b8;--green:#35d39a;--red:#ff647c;--amber:#f5bd58;--blue:#79aaff}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#13223a 0%,var(--bg) 48%);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -75,6 +75,13 @@
     <div class="foot">Separate historical research only. Compares baseline entries with volume, trend/momentum alignment, and cost-aware filters. It does not modify live signals, paper balance, trade history, or the pause setting.</div>
     <div class="actions"><button id="runV17">Run V1.7 Cost-Aware Research</button></div>
     <div id="v17Result" class="trade muted">Not run yet. Uses public completed Binance candles and a separate chronological 70/30 development/holdout split.</div>
+  </section>
+
+  <section class="panel" style="margin-top:13px">
+    <h2>V1.8 Walk-Forward Robustness Research</h2>
+    <div class="foot">Separate historical research only. Retrieves up to 6,000 completed public candles per coin in batches, then tests four fixed, chronological evaluation windows. Strategy rules and risk settings are held constant; no optimization or live-engine changes.</div>
+    <div class="actions"><button id="runV18">Run V1.8 Walk-Forward Research</button></div>
+    <div id="v18Result" class="trade muted">Not run yet. Tests four unseen chronological windows for BTC, ETH and SOL, with zero, current and double-cost sensitivity.</div>
   </section>
 
   <section class="panel" style="margin-top:13px">
@@ -480,6 +487,98 @@ function simulateV17(bars, mode, startIndex, endExclusive, feeRate=.001, slippag
 function v17Line(r) {
  return `${r.trades} trades · ${r.winRate.toFixed(1)}% winners · ${money(r.net)} net · ${money(r.maxDD)} DD · ${money(r.expectancy)} expectancy/trade`;
 }
+
+async function fetchV18History(item) {
+ const limit=1000, maxPages=6, pages=[];
+ let endTime=null;
+ for(let page=0;page<maxPages;page++) {
+  let url=API+"/klines?symbol="+item.s+"&interval="+timeframe+"&limit="+limit;
+  if(endTime!==null) url+="&endTime="+endTime;
+  const batch=await getJson(url);
+  if(!Array.isArray(batch)||batch.length===0) break;
+  pages.push(...batch);
+  const firstTime=Number(batch[0][0]);
+  if(!Number.isFinite(firstTime)||batch.length<2) break;
+  endTime=firstTime-1;
+  if(batch.length<limit) break;
+ }
+ const sorted=pages.sort((a,b)=>Number(a[0])-Number(b[0]));
+ const unique=sorted.filter((k,i)=>i===0||Number(k[0])!==Number(sorted[i-1][0]));
+ // Exclude the currently forming candle. Keep at most the requested 6,000 completed bars.
+ const bars=unique.slice(0,-1).slice(-6000).map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
+ return bars;
+}
+function simulateV18(bars,mode,startIndex,endExclusive,feeRate=.001,slippageRate=.0005) {
+ const end=Math.min(endExclusive,bars.length);
+ let equity=1000,peak=1000,maxDD=0,lastExitTime=-Infinity,grossProfit=0,grossLoss=0;
+ const nets=[]; let i=Math.max(65,startIndex);
+ while(i<end-2) {
+  const a=backtestSignal(bars,i),b=backtestSignal(bars,i+1);
+  if(!v17EntryPass(a,mode)||!v17EntryPass(b,mode)||a.side!==b.side){i++;continue;}
+  const entryBar=bars[i+2],side=b.side;
+  if(entryBar.t-lastExitTime<15*60*1000){i++;continue;}
+  const rawEntry=entryBar.o;
+  const entry=rawEntry*(side==="LONG"?1+slippageRate:1-slippageRate);
+  const dist=Math.max(b.atr*1.5,entry*.002),stop=side==="LONG"?entry-dist:entry+dist,target=side==="LONG"?entry+dist*3:entry-dist*3;
+  const qty=(equity*.01)/dist;
+  const lastAllowed=Math.min(i+2+30,end-1);
+  let rawExit=bars[lastAllowed].c,exitIndex=lastAllowed;
+  for(let j=i+2;j<=lastAllowed;j++){
+   const bar=bars[j],hitStop=side==="LONG"?bar.l<=stop:bar.h>=stop,hitTarget=side==="LONG"?bar.h>=target:bar.l<=target;
+   if(hitStop){rawExit=stop;exitIndex=j;break;}
+   if(hitTarget){rawExit=target;exitIndex=j;break;}
+  }
+  const exit=rawExit*(side==="LONG"?1-slippageRate:1+slippageRate);
+  const gross=(side==="LONG"?exit-entry:entry-exit)*qty,fees=(entry+exit)*qty*feeRate,net=gross-fees;
+  nets.push(net);if(net>0)grossProfit+=net;else grossLoss+=Math.abs(net);
+  equity+=net;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+  lastExitTime=bars[exitIndex].t;i=Math.max(i+1,exitIndex+1);
+ }
+ const wins=nets.filter(x=>x>0).length,net=nets.reduce((a,b)=>a+b,0);
+ return {trades:nets.length,wins,winRate:nets.length?wins/nets.length*100:0,net,maxDD,expectancy:nets.length?net/nets.length:0,profitFactor:grossLoss?grossProfit/grossLoss:(grossProfit>0?Infinity:0)};
+}
+function v18Fmt(r){return `${r.trades} trades · ${r.winRate.toFixed(1)}% wins · ${money(r.net)} net · ${money(r.maxDD)} DD · ${money(r.expectancy)} expectancy · PF ${Number.isFinite(r.profitFactor)?r.profitFactor.toFixed(2):"∞"}`;}
+async function runV18Research(){
+ const out=$("v18Result"),btn=$("runV18");btn.disabled=true;btn.textContent="Downloading & testing…";
+ out.textContent="Retrieving up to 6,000 completed public candles per coin in batches…";
+ try{
+  const modes=[["Baseline","baseline"],["Volume ≥1.30×","volume"],["EMA + RSI alignment","alignment"],["Combined cost-aware","costAware"]];
+  const coins=[];
+  for(const item of symbols){
+   const bars=await fetchV18History(item);
+   if(bars.length<500)throw new Error(item.short+" returned only "+bars.length+" completed candles; at least 500 are required.");
+   // Four sequential, non-overlapping 15% evaluation windows after a 40% initial history period.
+   const folds=[];
+   for(let f=0;f<4;f++){
+    const start=Math.floor(bars.length*(.40+f*.15));
+    const end=f===3?bars.length:Math.floor(bars.length*(.55+f*.15));
+    if(end-start<50)continue;
+    const strategies=modes.map(([label,mode])=>({label,mode,result:simulateV18(bars,mode,start,end)}));
+    const costs=[["Zero",0,0],["Current",.001,.0005],["Double",.002,.001]].map(([label,fee,slip])=>({label,result:simulateV18(bars,"costAware",start,end,fee,slip)}));
+    folds.push({number:f+1,start,end,strategies,costs});
+   }
+   coins.push({coin:item.short,candles:bars.length,first:new Date(bars[0].t).toISOString().slice(0,10),last:new Date(bars.at(-1).t).toISOString().slice(0,10),folds});
+  }
+  const modesSummary=modes.map(([label,mode])=>{
+   const all=coins.flatMap(c=>c.folds.flatMap(f=>f.strategies.filter(x=>x.mode===mode).map(x=>x.result)));
+   const trades=all.reduce((n,r)=>n+r.trades,0),wins=all.reduce((n,r)=>n+r.wins,0),net=all.reduce((n,r)=>n+r.net,0),dd=all.reduce((n,r)=>n+r.maxDD,0),profit=all.reduce((n,r)=>n+(Number.isFinite(r.profitFactor)?r.profitFactor:0),0);
+   return `<div class="trade"><b>${label}</b><br>${trades} trades · ${trades?(wins/trades*100).toFixed(1):"0.0"}% wins · ${money(net)} total net · ${money(dd)} summed fold drawdown<br><span class="muted">Mean fold profit factor: ${all.length?(profit/all.length).toFixed(2):"0.00"}</span></div>`;
+  }).join("");
+  const coinCards=coins.map(c=>{
+   const folds=c.folds.map(f=>{
+    const strategyRows=f.strategies.map(x=>`<b>${x.label}:</b> ${v18Fmt(x.result)}`).join("<br>");
+    const costRows=f.costs.map(x=>`${x.label} costs: ${v18Fmt(x.result)}`).join("<br>");
+    return `<div class="trade"><b>Window ${f.number}</b> · bars ${f.start}–${f.end-1}<br>${strategyRows}<br><b>Cost-aware stress test</b><br>${costRows}</div>`;
+   }).join("");
+   return `<div class="trade"><b>${c.coin} · ${c.candles.toLocaleString("en-US")} completed candles</b><br>Coverage: ${c.first} to ${c.last}<br>${folds}</div>`;
+  }).join("");
+  const total=coins.reduce((n,c)=>n+c.folds.reduce((m,f)=>m+f.strategies.find(x=>x.mode==="costAware").result.trades,0),0);
+  out.innerHTML=`<div class="trade"><b>V1.8 Walk-Forward Research · ${timeframe}</b><br>Four chronological evaluation windows per coin · ${total} combined cost-aware trades across all windows<br><b>Strategy totals across windows</b></div>${modesSummary}${coinCards}<div class="foot">Method: up to 6,000 completed Binance public spot candles per coin, fetched in up to six backward-paginated requests; current incomplete candle excluded. Four sequential, non-overlapping 15% evaluation windows begin after an initial 40% history period. Every window starts a fresh separate $1,000 virtual account per coin. Rules are fixed and not tuned between windows: two consecutive matching completed-candle signals, next-candle-open entry, one position per coin, 15-minute cooldown, 1% equity risk, 1.5× ATR stop, 3× ATR target, 30-candle time exit, stop checked before target. Costs: 0.10% fee and 0.05% slippage per side; sensitivity compares zero and double these estimates. Profit factor is net winning trade sum divided by absolute net losing trade sum. Summed drawdown adds separate window drawdowns and is not a portfolio drawdown. The windows are historical walk-forward slices, not independent market regimes or a guarantee of future performance. The test does not alter live signals, paper account/history, local storage or paper-trading pause state.</div>`;
+ }catch(e){out.textContent="V1.8 research could not complete: "+e.message+". No live signals or paper-trading data were changed.";}
+ finally{btn.disabled=false;btn.textContent="Run V1.8 Walk-Forward Research";}
+}
+$("runV18").addEventListener("click",runV18Research);
+
 async function runV17Research() {
  const out=$("v17Result"),btn=$("runV17");
  btn.disabled=true;btn.textContent="Research running…";
