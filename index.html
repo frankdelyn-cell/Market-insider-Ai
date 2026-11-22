@@ -69,6 +69,14 @@
     <div class="actions"><button id="runV16">Run V1.6 Diagnostics</button></div>
     <div id="v16Result" class="trade muted">Not run yet. Tests entry quality, exit profiles, cost sensitivity, and market-condition consistency on a separate 70/30 historical split.</div>
   </section>
+
+  <section class="panel" style="margin-top:13px">
+    <h2>V1.7 Cost-Aware Entry Research</h2>
+    <div class="foot">Separate historical research only. Compares baseline entries with volume, trend/momentum alignment, and cost-aware filters. It does not modify live signals, paper balance, trade history, or the pause setting.</div>
+    <div class="actions"><button id="runV17">Run V1.7 Cost-Aware Research</button></div>
+    <div id="v17Result" class="trade muted">Not run yet. Uses public completed Binance candles and a separate chronological 70/30 development/holdout split.</div>
+  </section>
+
   <section class="panel" style="margin-top:13px">
     <h2>Why the engine chose each signal</h2>
     <div id="signalReasons" class="muted small">Waiting for market analysis…</div>
@@ -416,6 +424,98 @@ async function runV16Diagnostics(){
  }catch(e){out.textContent="V1.6 diagnostics could not complete: "+e.message+". Your live engine and paper account remain unchanged."}
  finally{btn.disabled=false;btn.textContent="Run V1.6 Diagnostics";}
 }
+
+function v17EntryPass(s, mode) {
+ if(!s || s.side==="WAIT") return false;
+ if(mode==="baseline") return true;
+ const aligned=s.side==="LONG"
+  ? s.e9>s.e21 && s.last>s.e9 && s.rv>52 && s.rv<70
+  : s.e9<s.e21 && s.last<s.e9 && s.rv<48 && s.rv>30;
+ if(mode==="volume") return s.volRatio>=1.30;
+ if(mode==="alignment") return aligned;
+ if(mode==="costAware") {
+  const estimatedRoundTripCost=0.003;
+  const targetMovePct=(s.atr*3)/s.last;
+  return aligned && s.volRatio>=1.30 && targetMovePct >= estimatedRoundTripCost*2;
+ }
+ return false;
+}
+function simulateV17(bars, mode, startIndex, endExclusive, feeRate=.001, slippageRate=.0005) {
+ const end=Math.min(endExclusive,bars.length);
+ let equity=1000,peak=1000,maxDD=0,lastExitTime=-Infinity;
+ const trades=[];
+ let i=Math.max(65,startIndex);
+ while(i<end-2) {
+  const a=backtestSignal(bars,i), b=backtestSignal(bars,i+1);
+  if(!v17EntryPass(a,mode)||!v17EntryPass(b,mode)||a.side!==b.side) {i++;continue;}
+  const entryBar=bars[i+2], side=b.side;
+  if(entryBar.t-lastExitTime<15*60*1000) {i++;continue;}
+  const rawEntry=entryBar.o;
+  const entry=rawEntry*(side==="LONG"?1+slippageRate:1-slippageRate);
+  const dist=Math.max(b.atr*1.5,entry*.002);
+  const stop=side==="LONG"?entry-dist:entry+dist;
+  const target=side==="LONG"?entry+dist*3:entry-dist*3;
+  const qty=(equity*.01)/dist;
+  const lastAllowed=Math.min(i+2+30,end-1);
+  let rawExit=bars[lastAllowed].c,exitIndex=lastAllowed;
+  for(let j=i+2;j<=lastAllowed;j++) {
+   const bar=bars[j];
+   const hitStop=side==="LONG"?bar.l<=stop:bar.h>=stop;
+   const hitTarget=side==="LONG"?bar.h>=target:bar.l<=target;
+   if(hitStop) {rawExit=stop;exitIndex=j;break;}
+   if(hitTarget) {rawExit=target;exitIndex=j;break;}
+  }
+  const exit=rawExit*(side==="LONG"?1-slippageRate:1+slippageRate);
+  const gross=(side==="LONG"?exit-entry:entry-exit)*qty;
+  const fees=(entry+exit)*qty*feeRate;
+  const net=gross-fees;
+  trades.push(net);
+  equity+=net;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+  lastExitTime=bars[exitIndex].t;
+  i=Math.max(i+1,exitIndex+1);
+ }
+ const wins=trades.filter(x=>x>0).length;
+ return {trades:trades.length,wins,winRate:trades.length?wins/trades.length*100:0,net:trades.reduce((a,b)=>a+b,0),maxDD,expectancy:trades.length?trades.reduce((a,b)=>a+b,0)/trades.length:0};
+}
+function v17Line(r) {
+ return `${r.trades} trades · ${r.winRate.toFixed(1)}% winners · ${money(r.net)} net · ${money(r.maxDD)} DD · ${money(r.expectancy)} expectancy/trade`;
+}
+async function runV17Research() {
+ const out=$("v17Result"),btn=$("runV17");
+ btn.disabled=true;btn.textContent="Research running…";
+ out.textContent="Downloading completed public candles for BTC, ETH and SOL…";
+ try {
+  const modes=[["Baseline","baseline"],["Volume confirmation ≥1.30×","volume"],["EMA + RSI alignment","alignment"],["Combined cost-aware filter","costAware"]];
+  const coins=[];
+  for(const item of symbols) {
+   const latest=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&limit=1000");
+   let older=[];
+   if(latest.length) older=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&endTime="+(Number(latest[0][0])-1)+"&limit=500");
+   const raw=[...older,...latest].sort((a,b)=>Number(a[0])-Number(b[0]));
+   const unique=raw.filter((k,i)=>i===0||Number(k[0])!==Number(raw[i-1][0]));
+   const bars=unique.slice(0,-1).map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
+   if(bars.length<180) throw new Error(item.short+" returned too few completed candles ("+bars.length+").");
+   const split=Math.floor(bars.length*.7);
+   const results=modes.map(([label,mode])=>({label,mode,dev:simulateV17(bars,mode,65,split),hold:simulateV17(bars,mode,split,bars.length)}));
+   const costs=[["Zero costs",0,0],["Current costs",.001,.0005],["Double costs",.002,.001]].map(([label,fee,slip])=>({label,result:simulateV17(bars,"costAware",split,bars.length,fee,slip)}));
+   coins.push({coin:item.short,candles:bars.length,results,costs});
+  }
+  const aggregate=key=>coins.reduce((acc,c)=>{const r=c.results.find(x=>x.mode===key).hold;acc.trades+=r.trades;acc.wins+=r.wins;acc.net+=r.net;acc.dd+=r.maxDD;return acc;},{trades:0,wins:0,net:0,dd:0});
+  const combined=aggregate("costAware");
+  const cards=coins.map(c=>{
+   const rows=c.results.map(r=>`<b>${r.label}</b><br>Development: ${v17Line(r.dev)}<br>Holdout: ${v17Line(r.hold)}`).join("<br><br>");
+   const costRows=c.costs.map(x=>`${x.label}: ${v17Line(x.result)}`).join("<br>");
+   return `<div class="trade"><b>${c.coin} · ${c.candles} completed candles</b><br>${rows}<br><b>Cost sensitivity · cost-aware holdout</b><br>${costRows}</div>`;
+  }).join("");
+  out.innerHTML=`<div class="trade"><b>V1.7 · ${timeframe} · chronological 70/30 split</b><br>Combined cost-aware holdout: ${combined.trades} trades · ${combined.trades?(combined.wins/combined.trades*100).toFixed(1):"0.0"}% winners · ${money(combined.net)} net · summed per-coin drawdown ${money(combined.dd)}</div>${cards}<div class="foot">Method: Binance public spot candles only; latest candle excluded as incomplete; up to 1,500 candles per coin; first 70% development and final 30% holdout. Each coin and segment starts with a separate $1,000 test balance. All variants require two consecutive matching completed-candle signals and enter at the next candle open. One open trade per coin; 15-minute cooldown; 1% equity risk; 1.5× ATR stop; 3× ATR target; 30-candle time exit; stop checked before target. Current estimated costs are 0.10% fee per side and 0.05% slippage per side. Cost-aware filter requires EMA/price/RSI alignment, volume at least 1.30× average, and a 3×ATR target distance at least twice the estimated 0.30% round-trip cost. Cost sensitivity reruns the cost-aware holdout with zero, current and double costs. Low trade counts are inconclusive; target at least 100 holdout trades overall and preferably 30+ per coin for a preliminary view. These tests do not prove future profitability. V1.7 research does not change live signals, paper account/history, or pause state.</div>`;
+ } catch(e) {
+  out.textContent="V1.7 research could not complete: "+e.message+". Live signals and the paper account remain unchanged.";
+ } finally {
+  btn.disabled=false;btn.textContent="Run V1.7 Cost-Aware Research";
+ }
+}
+$("runV17").addEventListener("click",runV17Research);
+
 $("runV16").addEventListener("click",runV16Diagnostics);
 
 $("runBacktest").addEventListener("click",runBacktest);
