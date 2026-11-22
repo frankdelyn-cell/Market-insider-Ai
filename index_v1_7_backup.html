@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>Market Insider AI — V1.6 Research Diagnostics</title>
+<style>
+:root{color-scheme:dark;--bg:#080e19;--panel:#111b2b;--panel2:#172338;--line:#26364d;--text:#edf3fb;--muted:#91a2b8;--green:#35d39a;--red:#ff647c;--amber:#f5bd58;--blue:#79aaff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#13223a 0%,var(--bg) 48%);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1050px;margin:auto;padding:20px 14px 40px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.brand{display:flex;gap:11px;align-items:center}.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#245b8e,#17314f);display:grid;place-items:center;font-size:22px}.eyebrow{font-size:10px;letter-spacing:2px;color:var(--blue);font-weight:800}.brand h1{font-size:19px;margin:3px 0 0;letter-spacing:.3px}.pill{border:1px solid #28634f;color:var(--green);background:#102b25;padding:7px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.notice{border:1px solid #66502a;background:#2b2418;color:#f6d99f;padding:11px 13px;border-radius:12px;font-size:12px;line-height:1.45;margin-bottom:16px}
+.controls,.panel,.coin{background:linear-gradient(160deg,var(--panel),#0e1725);border:1px solid var(--line);border-radius:16px}
+.controls{padding:13px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tab,button{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 12px;border-radius:10px;font-weight:700;font-size:12px}.tab.active{background:#1d3b60;border-color:#477bb6;color:#dcecff}button:active{transform:scale(.98)}.small{font-size:11px;color:var(--muted)}.status{font-size:11px;color:var(--muted);text-align:right}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}.coin{padding:14px;min-width:0}.coinhead{display:flex;justify-content:space-between;align-items:center}.symbol{font-size:13px;font-weight:800;letter-spacing:.5px}.coinname{font-size:10px;color:var(--muted);margin-top:3px}.price{font-size:23px;font-weight:800;margin:15px 0 5px;letter-spacing:-.7px;overflow-wrap:anywhere}.change{font-size:12px;font-weight:700}.positive{color:var(--green)}.negative{color:var(--red)}.muted{color:var(--muted)}.signal{margin-top:14px;padding:9px 10px;border-radius:10px;background:#182438;display:flex;justify-content:space-between;align-items:center;gap:8px}.signal strong{font-size:11px;letter-spacing:.5px}.risk{font-size:10px;color:var(--muted);margin-top:8px}
+.lower{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-top:13px}.panel{padding:15px}.panel h2{font-size:14px;margin:0 0 12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#172338;border-radius:11px;padding:11px}.stat span{display:block;color:var(--muted);font-size:10px}.stat b{display:block;font-size:18px;margin-top:6px}.row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #223149;font-size:12px}.row:last-child{border:0}.trade{background:#172338;padding:10px;border-radius:10px;margin-top:8px;font-size:11px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{font-size:11px}.danger{border-color:#75404b;color:#ff9baa}.foot{font-size:10px;color:var(--muted);line-height:1.5;margin-top:16px}.loading{color:var(--amber)}@media(max-width:700px){.grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}.price{font-size:27px}.top{align-items:flex-start}.status{text-align:left}.stats{grid-template-columns:repeat(3,1fr)}}@media(min-width:701px){.coin{padding:18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><div class="logo">⌁</div><div><div class="eyebrow">PUBLIC-MARKET INTELLIGENCE</div><h1>MARKET INSIDER AI</h1></div></div>
+    <div class="pill">● PAPER MODE ONLY</div>
+  </header>
+  <div class="notice"><b>Reality check:</b> This version analyses public exchange data only. It does not access secret insider information, guarantee predictions, or place real trades. All simulated trades use virtual funds.</div>
+  <section class="controls">
+    <div><div class="small" style="margin-bottom:7px">ANALYSIS TIMEFRAME</div><div class="tabs" id="timeTabs">
+      <button class="tab" data-tf="1m">1m</button><button class="tab" data-tf="5m">5m</button><button class="tab" data-tf="15m">15m</button><button class="tab" data-tf="1h">1h</button>
+    </div></div>
+    <div><div class="status" id="connection">Connecting to public market data…</div><div class="actions" style="justify-content:flex-end"><button id="refresh">↻ Refresh</button></div></div>
+  </section>
+  <section class="grid" id="coins">
+    <article class="coin"><div class="loading">Loading BTC…</div></article>
+    <article class="coin"><div class="loading">Loading ETH…</div></article>
+    <article class="coin"><div class="loading">Loading SOL…</div></article>
+  </section>
+  <section class="lower">
+    <div class="panel">
+      <h2>Paper-trading account</h2>
+      <div class="stats">
+        <div class="stat"><span>VIRTUAL BALANCE</span><b id="balance">$1,000.00</b></div>
+        <div class="stat"><span>OPEN P/L</span><b id="openpnl">$0.00</b></div>
+        <div class="stat"><span>CLOSED P/L</span><b id="closedpnl">$0.00</b></div>
+      </div>
+      <div class="row" style="margin-top:9px"><span>Risk per simulated trade</span><b>1% of virtual balance</b></div>
+      <div class="row"><span>Automatic paper trading</span><b id="paperstate" class="positive">ON</b></div>
+      <div class="actions"><button id="togglePaper">Pause paper trading</button><button id="reset" class="danger">Reset virtual account</button></div>
+      <div class="foot">The simulator uses virtual funds, estimated 0.1% fees per side, and volatility-based stops/targets. New entries require the same signal on two distinct completed candles and a 15-minute per-coin cooldown. Opposite-signal exits require two completed candles; stop-loss and take-profit remain active while entries are paused. This is a learning simulation, not a broker execution engine.</div>
+    </div>
+    <div class="panel">
+      <h2>Intelligence & risk rules</h2>
+      <div class="row"><span>Trend</span><b>EMA 9 / EMA 21</b></div>
+      <div class="row"><span>Momentum</span><b>RSI 14</b></div>
+      <div class="row"><span>Volume</span><b>Recent vs average</b></div>
+      <div class="row"><span>Entry confirmation</span><b>2 completed candles</b></div>
+      <div class="row"><span>Re-entry cooldown</span><b>15 minutes per coin</b></div>
+      <div class="row"><span>Risk filter</span><b>Volatility + signal quality</b></div>
+      <div class="row"><span>Whale / insider feed</span><b class="muted">Not connected yet</b></div>
+      <div class="row"><span>Signal interpretation</span><b>Trend + momentum + volume</b></div>
+      <div class="actions"><button id="runBacktest">Run V1.5 Strategy Lab</button></div>
+      <div id="backtestResult" class="trade muted">No V1.5 research test run yet. Compare development results with the separate out-of-sample holdout.</div>
+      <div class="foot">Signal score is a rule-based research score, NOT a verified probability or win-rate forecast. WAIT is a valid outcome.</div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:13px">
+    <h2>V1.6 Research Diagnostics</h2>
+    <div class="foot">Independent research only. This module does not modify live signals, paper balance, trade history, or the pause setting.</div>
+    <div class="actions"><button id="runV16">Run V1.6 Diagnostics</button></div>
+    <div id="v16Result" class="trade muted">Not run yet. Tests entry quality, exit profiles, cost sensitivity, and market-condition consistency on a separate 70/30 historical split.</div>
+  </section>
+
+  <section class="panel" style="margin-top:13px">
+    <h2>V1.7 Cost-Aware Entry Research</h2>
+    <div class="foot">Separate historical research only. Compares baseline entries with volume, trend/momentum alignment, and cost-aware filters. It does not modify live signals, paper balance, trade history, or the pause setting.</div>
+    <div class="actions"><button id="runV17">Run V1.7 Cost-Aware Research</button></div>
+    <div id="v17Result" class="trade muted">Not run yet. Uses public completed Binance candles and a separate chronological 70/30 development/holdout split.</div>
+  </section>
+
+  <section class="panel" style="margin-top:13px">
+    <h2>Why the engine chose each signal</h2>
+    <div id="signalReasons" class="muted small">Waiting for market analysis…</div>
+  </section>
+  <section class="panel" style="margin-top:13px">
+    <h2>Signal history</h2>
+    <div id="signalHistory" class="muted small">No signals recorded yet.</div>
+  </section>
+  <section class="panel" style="margin-top:13px">
+    <h2>Recent simulated trades</h2>
+    <div id="trades"><div class="muted small">No simulated trades yet. The engine waits for a qualifying setup.</div></div>
+  </section>
+  <div class="foot">Data source: Binance public spot-market endpoints. Auto-refresh target: 30 seconds. Keep this page open for continuous monitoring; a phone browser may pause background tabs. No API keys, wallet connection, deposits, or real-money orders are used.</div>
+</div>
+<script>
+(() => {
+const symbols=[{s:"BTCUSDT",name:"Bitcoin",short:"BTC"},{s:"ETHUSDT",name:"Ethereum",short:"ETH"},{s:"SOLUSDT",name:"Solana",short:"SOL"}];
+const API="https://api.binance.com/api/v3";
+const validTimeframes=["1m","5m","15m","1h"];
+let timeframe=validTimeframes.includes(localStorage.getItem("mia_timeframe_v1"))?localStorage.getItem("mia_timeframe_v1"):"5m", market={}, analyses={}, signalHistory=(()=>{try{return JSON.parse(localStorage.getItem("mia_signal_history_v1"))||[]}catch(e){return []}})(), paperOn=(localStorage.getItem("mia_paper_on_v2")==="true"), timer=null;
+const saved=(()=>{try{return JSON.parse(localStorage.getItem("mia_paper_v1"))||null}catch(e){return null}})();
+let account=saved||{balance:1000,closedPnl:0,positions:{},trades:[]};
+account.lastExitAt=account.lastExitAt||{};
+account.confirmations=account.confirmations||{};
+const $=id=>document.getElementById(id);
+const money=n=>"$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt=n=>n>=1000?n.toLocaleString("en-US",{maximumFractionDigits:2}):n>=1?n.toFixed(3):n.toFixed(5);
+function persist(){try{localStorage.setItem("mia_paper_v1",JSON.stringify(account))}catch(e){}}
+function renderTimeframe(){document.querySelectorAll(".tab[data-tf]").forEach(x=>x.classList.toggle("active",x.dataset.tf===timeframe));}
+function ema(values,period){let k=2/(period+1),v=values[0];for(let i=1;i<values.length;i++)v=values[i]*k+v*(1-k);return v}
+function rsi(values,p=14){let gains=0,losses=0;for(let i=values.length-p;i<values.length;i++){let d=values[i]-values[i-1];if(d>0)gains+=d;else losses-=d}if(losses===0)return 100;let rs=(gains/p)/(losses/p);return 100-100/(1+rs)}
+function analyse(klines){
+ const closes=klines.map(x=>+x[4]), highs=klines.map(x=>+x[2]), lows=klines.map(x=>+x[3]), vols=klines.map(x=>+x[5]);
+ const e9=ema(closes.slice(-40),9),e21=ema(closes.slice(-60),21),rv=rsi(closes),last=closes.at(-1);
+ const ranges=highs.slice(-15).map((h,i)=>Math.max(h-lows[lows.length-15+i],Math.abs(h-closes[closes.length-16+i]),Math.abs(lows[lows.length-15+i]-closes[closes.length-16+i])));
+ const atr=ranges.reduce((a,b)=>a+b,0)/ranges.length, atrPct=atr/last*100;
+ const avgVol=vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20,volRatio=avgVol?vols.at(-1)/avgVol:1;
+ let score=0; if(e9>e21)score+=1;else score-=1;if(last>e9)score+=1;else score-=1;if(rv>52&&rv<70)score+=1;else if(rv<48&&rv>30)score-=1;if(volRatio>1.15)score+=Math.sign(score||1);
+ let side=score>=3?"LONG":score<=-3?"SHORT":"WAIT";
+ let risk=atrPct>1.2?"HIGH":atrPct>.55?"MEDIUM":"LOW";
+ if(rv>75||rv<25||atrPct>2.2)risk="HIGH";
+ if(risk==="HIGH")side="WAIT";
+ const confidence=Math.min(89,Math.max(50,50+Math.abs(score)*9+(volRatio>1.15?4:0)));
+ return {side,risk,confidence,price:last,e9,e21,rsi:rv,atr,atrPct,volRatio,score,candleTime:klines.at(-1)?.[0]};
+}
+async function getJson(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error("Market data request failed ("+r.status+")");return r.json()}
+async function loadOne(item){
+ const [ticker,klines]=await Promise.all([
+  getJson(API+"/ticker/24hr?symbol="+item.s),
+  getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&limit=80")
+ ]);
+ const a=analyse(klines.slice(0,-1));
+ market[item.short]={price:+ticker.lastPrice,change:+ticker.priceChangePercent,quoteVolume:+ticker.quoteVolume};
+ analyses[item.short]=a;
+}
+function explanation(a){
+ const bits=[];
+ bits.push(a.e9>a.e21?"EMA 9 is above EMA 21 (short-term trend is upward).": "EMA 9 is below EMA 21 (short-term trend is downward).");
+ bits.push(a.price>a.e9?"Price is above EMA 9.":"Price is below EMA 9.");
+ bits.push(a.rsi>=70?"RSI is overbought.":a.rsi<=30?"RSI is oversold.":a.rsi>=52?"RSI shows positive momentum.":a.rsi<=48?"RSI shows negative momentum.":"RSI momentum is neutral.");
+ bits.push(a.volRatio>=1.15?"Volume is above its recent average.":"Volume is not notably above its recent average.");
+ if(a.risk==="HIGH")bits.push("Risk filter blocks entries because volatility or RSI is elevated.");
+ if(a.side==="WAIT")bits.push("The combined rules do not show a sufficiently aligned setup; WAIT is intentional.");
+ return bits.join(" ");
+}
+function recordSignals(){
+ for(const item of symbols){const a=analyses[item.short];if(!a)continue;const key=item.short+":"+timeframe+":"+a.candleTime;if(signalHistory.some(x=>x.key===key))continue;signalHistory.unshift({key,symbol:item.short,timeframe,side:a.side,score:a.confidence,risk:a.risk,reason:explanation(a),time:new Date().toLocaleString()});}
+ signalHistory=signalHistory.slice(0,30);try{localStorage.setItem("mia_signal_history_v1",JSON.stringify(signalHistory))}catch(e){}
+ renderSignalPanels();
+}
+function renderSignalPanels(){
+ $("signalReasons").innerHTML=symbols.map(item=>{const a=analyses[item.short];return a?`<div class="trade"><b>${item.short}: ${a.side} · Research score ${a.confidence}/100</b><br>${explanation(a)}</div>`:""}).join("")||"Waiting for market analysis…";
+ $("signalHistory").innerHTML=signalHistory.slice(0,10).map(x=>`<div class="row"><span><b>${x.symbol} ${x.side}</b> · ${x.timeframe} · ${x.risk} risk<br><span class="muted">${x.time}</span></span><b>${x.score}/100</b></div>`).join("")||"No signals recorded yet.";
+}
+function renderCoins(){
+ $("coins").innerHTML=symbols.map(x=>{
+  const m=market[x.short],a=analyses[x.short];if(!m||!a)return `<article class="coin"><b>${x.short}</b><p class="muted">Waiting for data…</p></article>`;
+  const cls=m.change>=0?"positive":"negative",sig=a.side==="LONG"?"positive":a.side==="SHORT"?"negative":"loading";
+  return `<article class="coin"><div class="coinhead"><div><div class="symbol">${x.short}/USDT</div><div class="coinname">${x.name}</div></div><span class="small">SPOT</span></div><div class="price">$${fmt(m.price)}</div><div class="change ${cls}">${m.change>=0?"+":""}${m.change.toFixed(2)}% <span class="muted">24h</span></div><div class="signal"><strong class="${sig}">${a.side}</strong><span class="small">Research score ${a.confidence}/100</span></div><div class="risk">Risk: <b class="${a.risk==="HIGH"?"negative":a.risk==="MEDIUM"?"loading":"positive"}">${a.risk}</b> · RSI ${a.rsi.toFixed(1)} · Volatility ${a.atrPct.toFixed(2)}%</div><div class="risk">Volume ratio: ${a.volRatio.toFixed(2)}× average</div></article>`;
+ }).join("");
+}
+function positionValue(pos,price){return pos.side==="LONG"?(price-pos.entry)*pos.qty:(pos.entry-price)*pos.qty}
+function updatePaper(){
+ for(const item of symbols){
+  const a=analyses[item.short],m=market[item.short];if(!a||!m)continue;
+  let p=account.positions[item.short];
+  if(p){
+   const hitStop=p.side==="LONG"?m.price<=p.stop:m.price>=p.stop;
+   const hitTarget=p.side==="LONG"?m.price>=p.target:m.price<=p.target;
+   // Opposite signals must persist across two distinct completed candles before an exit.
+   if(a.candleTime!==p.lastOppositeCandle){
+    if(a.side!=="WAIT"&&a.side!==p.side){p.oppositeCount=(p.oppositeCount||0)+1;p.lastOppositeCandle=a.candleTime;}
+    else if(a.side===p.side){p.oppositeCount=0;p.lastOppositeCandle=a.candleTime;}
+   }
+   const confirmedReverse=(p.oppositeCount||0)>=2;
+   if(hitStop||hitTarget||confirmedReverse){
+    const exit=hitStop?p.stop:hitTarget?p.target:m.price;
+    const gross=positionValue(p,exit),fees=(p.entry*p.qty+exit*p.qty)*.001,net=gross-fees;
+    account.balance+=net;account.closedPnl+=net;
+    account.trades.unshift({symbol:item.short,side:p.side,entry:p.entry,exit,pnl:net,reason:hitStop?"Stop-loss":hitTarget?"Take-profit":"Confirmed opposite signal",time:new Date().toLocaleString()});
+    delete account.positions[item.short];
+    account.lastExitAt[item.short]=Date.now();
+    account.confirmations[item.short]=null;
+    persist();
+   }else{persist();}
+  }else{
+   // Count a signal only once per completed candle, not on every refresh or timeframe tap.
+   let c=account.confirmations[item.short];
+   if(a.side==="WAIT"||a.risk==="HIGH"){account.confirmations[item.short]=null;}
+   else if(!c||c.side!==a.side){account.confirmations[item.short]={side:a.side,count:1,lastCandle:a.candleTime};}
+   else if(c.lastCandle!==a.candleTime){c.count+=1;c.lastCandle=a.candleTime;}
+   const coolingDown=Date.now()-(account.lastExitAt[item.short]||0)<15*60*1000;
+   if(paperOn&&!coolingDown&&a.side!=="WAIT"&&a.risk!=="HIGH"&&a.confidence>=68&&(account.confirmations[item.short]?.count||0)>=2){
+    const riskCash=account.balance*.01,dist=Math.max(a.atr*1.5,m.price*.002),qty=riskCash/dist;
+    if(qty>0&&Number.isFinite(qty)){
+     const side=a.side,stop=side==="LONG"?m.price-dist:m.price+dist,target=side==="LONG"?m.price+dist*2:m.price-dist*2;
+     account.positions[item.short]={side,entry:m.price,qty,stop,target,opened:Date.now(),oppositeCount:0,lastOppositeCandle:null};
+     account.confirmations[item.short]=null;
+    }
+   }
+   persist();
+  }
+ }
+ renderAccount();
+}
+function renderAccount(){
+ let open=0;for(const [s,p] of Object.entries(account.positions)){if(market[s])open+=positionValue(p,market[s].price)}
+ $("balance").textContent=money(account.balance);$("openpnl").textContent=money(open);$("openpnl").className=open>=0?"positive":"negative";$("closedpnl").textContent=money(account.closedPnl);$("closedpnl").className=account.closedPnl>=0?"positive":"negative";
+ $("paperstate").textContent=paperOn?"ON":"PAUSED";$("paperstate").className=paperOn?"positive":"loading";$("togglePaper").textContent=paperOn?"Pause paper trading":"Resume paper trading";
+ const openRows=Object.entries(account.positions).map(([s,p])=>`<div class="trade"><b>${s} ${p.side}</b> · Entry $${fmt(p.entry)} · Stop $${fmt(p.stop)} · Target $${fmt(p.target)}<br>Unrealized P/L: ${money(market[s]?positionValue(p,market[s].price):0)}</div>`).join("");
+ const closed=account.trades.slice(0,8).map(t=>`<div class="trade"><b>${t.symbol} ${t.side}</b> · ${t.reason}<br>Entry $${fmt(t.entry)} → Exit $${fmt(t.exit)} · <b class="${t.pnl>=0?"positive":"negative"}">${money(t.pnl)}</b><br><span class="muted">${t.time}</span></div>`).join("");
+ $("trades").innerHTML=(openRows||"")+(closed||"")||'<div class="muted small">No simulated trades yet. The engine waits for a qualifying setup.</div>';
+}
+async function refresh({processPaper=false}={}){
+ $("connection").textContent="Updating public market data…";$("connection").className="status loading";
+ try{for(const item of symbols)await loadOne(item);renderCoins();recordSignals();if(processPaper)updatePaper();$("connection").textContent="● Live data connected · updated "+new Date().toLocaleTimeString();$("connection").className="status positive"}
+ catch(e){$("connection").textContent="Data connection issue: "+e.message;$("connection").className="status negative"}
+}
+
+function backtestSignal(bars, i) {
+ const slice=bars.slice(0,i+1), closes=slice.map(b=>b.c), highs=slice.map(b=>b.h), lows=slice.map(b=>b.l), vols=slice.map(b=>b.v);
+ if(closes.length<65)return null;
+ const e9=ema(closes.slice(-40),9),e21=ema(closes.slice(-60),21),rv=rsi(closes),last=closes.at(-1);
+ const ranges=[];
+ for(let j=Math.max(1,slice.length-14);j<slice.length;j++){
+  const b=slice[j],prev=slice[j-1].c;
+  ranges.push(Math.max(b.h-b.l,Math.abs(b.h-prev),Math.abs(b.l-prev)));
+ }
+ const atr=ranges.reduce((a,b)=>a+b,0)/ranges.length,atrPct=atr/last*100;
+ const avgVol=vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20,volRatio=avgVol?vols.at(-1)/avgVol:1;
+ let score=0;
+ if(e9>e21)score++;else score--;
+ if(last>e9)score++;else score--;
+ if(rv>52&&rv<70)score++;else if(rv<48&&rv>30)score--;
+ if(volRatio>1.15)score+=Math.sign(score||1);
+ let side=score>=3?"LONG":score<=-3?"SHORT":"WAIT";
+ if(rv>75||rv<25||atrPct>2.2)side="WAIT";
+ return {side,atr,atrPct,rv,e9,e21,last,volRatio,score};
+}
+function backtestFilter(s, strict) {
+ if(!s||s.side==="WAIT")return false;
+ if(!strict)return true;
+ const aligned=s.side==="LONG"
+  ? s.e9>s.e21&&s.last>s.e9&&s.rv>52&&s.rv<70
+  : s.e9<s.e21&&s.last<s.e9&&s.rv<48&&s.rv>30;
+ return aligned&&s.volRatio>1.15&&s.atrPct<=.55;
+}
+function simulateStrategy(bars, strict, cooldownMs, startIndex=65, endExclusive=bars.length) {
+ let equity=1000,peak=1000,maxDD=0,trades=0,wins=0,net=0;
+ let i=Math.max(65,startIndex),lastExitTime=-Infinity;
+ const end=Math.min(endExclusive,bars.length);
+ while(i<end-2){
+  const a=backtestSignal(bars,i),b=backtestSignal(bars,i+1);
+  if(!backtestFilter(a,strict)||!backtestFilter(b,strict)||a.side!==b.side){i++;continue;}
+  const entryBar=bars[i+2],side=b.side;
+  if(entryBar.t-lastExitTime<cooldownMs){i++;continue;}
+  const rawEntry=entryBar.o;
+  const entry=rawEntry*(side==="LONG"?1.0005:.9995);
+  const dist=Math.max(b.atr*1.5,entry*.002);
+  const stop=side==="LONG"?entry-dist:entry+dist;
+  const target=side==="LONG"?entry+dist*3:entry-dist*3;
+  const riskCash=equity*.01,qty=riskCash/dist;
+  let exitRaw=null,exitIndex=i+2,reason="Time exit";
+  const lastAllowed=Math.min(i+2+30,end-1);
+  for(let j=i+2;j<=lastAllowed;j++){
+   const bar=bars[j];
+   const hitStop=side==="LONG"?bar.l<=stop:bar.h>=stop;
+   const hitTarget=side==="LONG"?bar.h>=target:bar.l<=target;
+   if(hitStop){exitRaw=stop;exitIndex=j;reason="Stop-loss";break;}
+   if(hitTarget){exitRaw=target;exitIndex=j;reason="Take-profit";break;}
+  }
+  if(exitRaw===null)exitRaw=bars[lastAllowed].c;
+  const exit=exitRaw*(side==="LONG"?.9995:1.0005);
+  const gross=(side==="LONG"?exit-entry:entry-exit)*qty;
+  const fees=(entry+exit)*qty*.001;
+  const pnl=gross-fees;
+  equity+=pnl;net+=pnl;trades++;
+  if(pnl>0)wins++;
+  peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+  lastExitTime=bars[exitIndex].t;
+  i=Math.max(i+1,exitIndex+1);
+ }
+ return {trades,wins,winRate:trades?wins/trades*100:0,net,maxDD,equity};
+}
+async function runBacktest(){
+ const out=$("backtestResult"),btn=$("runBacktest");
+ btn.disabled=true;btn.textContent="Testing…";
+ out.textContent="Downloading up to 1,500 completed candles per coin and running a 70/30 development/holdout test…";
+ try{
+  const tfMs={"1m":60000,"5m":300000,"15m":900000,"1h":3600000}[timeframe];
+  const cooldown=15*60*1000;
+  const combined={
+   dev:{base:{trades:0,wins:0,net:0},strict:{trades:0,wins:0,net:0}},
+   test:{base:{trades:0,wins:0,net:0},strict:{trades:0,wins:0,net:0}}
+  };
+  let rows=[],coverage=[];
+  for(const item of symbols){
+   const latest=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&limit=1000");
+   let older=[];
+   if(latest.length){
+    older=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&endTime="+(Number(latest[0][0])-1)+"&limit=500");
+   }
+   const raw=[...older,...latest].sort((a,b)=>Number(a[0])-Number(b[0]));
+   const unique=raw.filter((k,i)=>i===0||Number(k[0])!==Number(raw[i-1][0]));
+   const bars=unique.slice(0,-1).map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
+   if(bars.length<180)throw new Error(item.short+" returned too few completed candles ("+bars.length+").");
+   const split=Math.floor(bars.length*.7);
+   const dev={
+    base:simulateStrategy(bars,false,cooldown,65,split),
+    strict:simulateStrategy(bars,true,cooldown,65,split)
+   };
+   const test={
+    base:simulateStrategy(bars,false,cooldown,split,bars.length),
+    strict:simulateStrategy(bars,true,cooldown,split,bars.length)
+   };
+   for(const segment of ["dev","test"]){
+    const result=segment==="dev"?dev:test;
+    for(const key of ["base","strict"]){
+     combined[segment][key].trades+=result[key].trades;
+     combined[segment][key].wins+=result[key].wins;
+     combined[segment][key].net+=result[key].net;
+    }
+   }
+   coverage.push(item.short+": "+bars.length+" candles");
+   const line=(label,r)=>`${label}: ${r.trades} trades · ${r.winRate.toFixed(1)}% winners · ${money(r.net)} net · ${money(r.maxDD)} max drawdown`;
+   rows.push(`<div class="trade"><b>${item.short}</b> · ${bars.length} completed candles<br><b>Development (first 70%)</b><br>${line("Baseline",dev.base)}<br>${line("Stricter",dev.strict)}<br><b>Out-of-sample holdout (last 30%)</b><br>${line("Baseline",test.base)}<br>${line("Stricter",test.strict)}</div>`);
+  }
+  const fmtSummary=r=>`${r.trades} trades · ${r.trades?(r.wins/r.trades*100).toFixed(1):"0.0"}% winners · ${money(r.net)} combined net`;
+  out.innerHTML=`<b>Strategy Lab V1.5 · ${timeframe} · up to 1,500 completed candles per coin</b><div class="trade"><b>Coverage:</b> ${coverage.join(" · ")}<br>First 70% is the development period; final 30% is a separate out-of-sample holdout. Each segment starts each coin at a fresh $1,000 virtual test balance.</div>${rows.join("")}<div class="trade"><b>Combined development baseline:</b> ${fmtSummary(combined.dev.base)}<br><b>Combined development stricter:</b> ${fmtSummary(combined.dev.strict)}<hr style="border:0;border-top:1px solid #26364d"><b>Combined holdout baseline:</b> ${fmtSummary(combined.test.base)}<br><b>Combined holdout stricter:</b> ${fmtSummary(combined.test.strict)}</div><span class="muted">Data is fetched from Binance public spot klines in two requests per coin. Both strategies require two consecutive matching completed-candle signals and enter at the following candle open. Only one trade per coin is open at a time; 15-minute post-exit cooldown. Strict filter additionally requires volume ratio above 1.15×, aligned EMA/price/RSI and volatility at or below 0.55%. Each trade risks 1% of that segment's current test equity; stop 1.5× ATR; target 3× ATR; time exit after 30 candles. Fees 0.10% each side and slippage 0.05% each side. If stop and target occur in one candle, stop is assumed first. Trades cannot cross the development/holdout boundary. Holdout results are a more useful check than development results, but this single historical split is still limited and is not a forecast or proof of future performance. Combined net is the sum of three separate $1,000 coin accounts. The live signal engine, paper balance, trade history and pause setting are not changed by this test.</span>`;
+ }catch(e){out.textContent="Strategy Lab could not complete: "+e.message+". Public market-data access may be temporarily limited; your paper account is not changed."}
+ finally{btn.disabled=false;btn.textContent="Run V1.5 Strategy Lab";}
+}
+
+
+function simulateDiagnostic(bars, opts, startIndex, endExclusive) {
+ const end=Math.min(endExclusive,bars.length);
+ let equity=1000,peak=1000,maxDD=0,lastExitTime=-Infinity;
+ const trades=[];
+ let i=Math.max(65,startIndex);
+ while(i<end-2){
+  const a=backtestSignal(bars,i),b=backtestSignal(bars,i+1);
+  if(!backtestFilter(a,opts.strict)||!backtestFilter(b,opts.strict)||a.side!==b.side){i++;continue;}
+  const rawEntry=bars[i+2].o, side=b.side;
+  if(bars[i+2].t-lastExitTime<15*60*1000){i++;continue;}
+  const entry=rawEntry*(side==="LONG"?1+opts.slippageRate:1-opts.slippageRate);
+  const dist=Math.max(b.atr*opts.stopAtr,entry*.002);
+  const stop=side==="LONG"?entry-dist:entry+dist;
+  const target=side==="LONG"?entry+dist*opts.targetAtr:entry-dist*opts.targetAtr;
+  const qty=(equity*.01)/dist;
+  const lastAllowed=Math.min(i+2+opts.maxBars,end-1);
+  let rawExit=bars[lastAllowed].c,exitIndex=lastAllowed,reason="Time exit";
+  for(let j=i+2;j<=lastAllowed;j++){
+   const bar=bars[j];
+   const hitStop=side==="LONG"?bar.l<=stop:bar.h>=stop;
+   const hitTarget=side==="LONG"?bar.h>=target:bar.l<=target;
+   if(hitStop){rawExit=stop;exitIndex=j;reason="Stop-loss";break;}
+   if(hitTarget){rawExit=target;exitIndex=j;reason="Take-profit";break;}
+  }
+  const exit=rawExit*(side==="LONG"?1-opts.slippageRate:1+opts.slippageRate);
+  const rawGross=(side==="LONG"?rawExit-rawEntry:rawEntry-rawExit)*qty;
+  const feeCost=(rawEntry+rawExit)*qty*opts.feeRate;
+  const slipCost=(rawEntry+rawExit)*qty*opts.slippageRate;
+  const net=rawGross-feeCost-slipCost;
+  const holdBars=exitIndex-(i+2);
+  trades.push({net,rawGross,feeCost,slipCost,reason,holdBars,side,volume:b.volRatio,atrPct:b.atrPct,trend:b.e9>b.e21?(b.last>b.e9?"Uptrend":"Uptrend / pullback"):(b.last<b.e9?"Downtrend":"Downtrend / bounce"),regime:(b.e9>b.e21?"Up":"Down")+(b.atrPct>.55?" · high volatility":" · lower volatility")});
+  equity+=net;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+  lastExitTime=bars[exitIndex].t;
+  i=Math.max(i+1,exitIndex+1);
+ }
+ const wins=trades.filter(t=>t.net>0),losses=trades.filter(t=>t.net<0);
+ const grossWin=wins.reduce((a,t)=>a+t.net,0),grossLoss=Math.abs(losses.reduce((a,t)=>a+t.net,0));
+ return {trades,wins:wins.length,net:trades.reduce((a,t)=>a+t.net,0),maxDD,expectancy:trades.length?trades.reduce((a,t)=>a+t.net,0)/trades.length:0,profitFactor:grossLoss?grossWin/grossLoss:(grossWin?Infinity:0),avgWin:wins.length?grossWin/wins.length:0,avgLoss:losses.length?grossLoss/losses.length:0,fees:trades.reduce((a,t)=>a+t.feeCost,0),slippage:trades.reduce((a,t)=>a+t.slipCost,0)};
+}
+function v16Fmt(r){
+ const pf=Number.isFinite(r.profitFactor)?r.profitFactor.toFixed(2):(r.profitFactor===Infinity?"∞":"—");
+ return `${r.trades.length} trades · ${r.wins} wins · ${money(r.net)} net · ${money(r.maxDD)} DD · expectancy ${money(r.expectancy)}/trade · PF ${pf}`;
+}
+async function runV16Diagnostics(){
+ const out=$("v16Result"),btn=$("runV16");
+ btn.disabled=true;btn.textContent="Analysing…";
+ out.textContent="Downloading public completed candles and testing diagnostic variants. This may take a little while…";
+ try{
+  const all=[];
+  for(const item of symbols){
+   const latest=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&limit=1000");
+   let older=[];
+   if(latest.length) older=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&endTime="+(Number(latest[0][0])-1)+"&limit=500");
+   const raw=[...older,...latest].sort((a,b)=>Number(a[0])-Number(b[0]));
+   const unique=raw.filter((k,i)=>i===0||Number(k[0])!==Number(raw[i-1][0]));
+   const bars=unique.slice(0,-1).map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
+   if(bars.length<180)throw new Error(item.short+" returned too few completed candles.");
+   const split=Math.floor(bars.length*.7);
+   const standard={feeRate:.001,slippageRate:.0005,stopAtr:1.5,targetAtr:3,maxBars:30};
+   const devBase=simulateDiagnostic(bars,{...standard,strict:false},65,split);
+   const testBase=simulateDiagnostic(bars,{...standard,strict:false},split,bars.length);
+   const devStrict=simulateDiagnostic(bars,{...standard,strict:true},65,split);
+   const testStrict=simulateDiagnostic(bars,{...standard,strict:true},split,bars.length);
+   const exits=[
+    ["Current · 1.5/3 ATR · 30 bars",1.5,3,30],
+    ["Closer target · 1.5/2 ATR · 30 bars",1.5,2,30],
+    ["Wider stop · 2/3 ATR · 30 bars",2,3,30],
+    ["Shorter time · 1.5/3 ATR · 15 bars",1.5,3,15],
+    ["Longer time · 1.5/3 ATR · 45 bars",1.5,3,45]
+   ];
+   const exitResults=exits.map(x=>({label:x[0],result:simulateDiagnostic(bars,{...standard,strict:false,stopAtr:x[1],targetAtr:x[2],maxBars:x[3]},split,bars.length)}));
+   const costs=[
+    ["Before costs",0,0],
+    ["Current estimate",.001,.0005],
+    ["Double-cost stress",.002,.001]
+   ].map(x=>({label:x[0],result:simulateDiagnostic(bars,{...standard,strict:false,feeRate:x[1],slippageRate:x[2]},split,bars.length)}));
+   const regimes={};
+   for(const t of testBase.trades){const k=t.regime;regimes[k]=regimes[k]||{n:0,w:0,net:0};regimes[k].n++;if(t.net>0)regimes[k].w++;regimes[k].net+=t.net;}
+   all.push({coin:item.short,devBase,devStrict,testBase,testStrict,exitResults,costs,regimes,candles:bars.length});
+  }
+  const aggregate=key=>all.reduce((acc,x)=>{const r=x[key];acc.n+=r.trades.length;acc.w+=r.wins;acc.net+=r.net;acc.dd+=r.maxDD;acc.fees+=r.fees;acc.slippage+=r.slippage;return acc;},{n:0,w:0,net:0,dd:0,fees:0,slippage:0});
+  const holdBase=aggregate("testBase"),holdStrict=aggregate("testStrict");
+  const cards=all.map(x=>{
+   const regimeRows=Object.entries(x.regimes).map(([k,v])=>`${k}: ${v.n} trades, ${v.w} wins, ${money(v.net)} net`).join("<br>")||"No trades in this segment";
+   const exitRows=x.exitResults.map(v=>`${v.label}: ${v.result.trades.length} trades · ${money(v.result.net)} net · ${money(v.result.maxDD)} DD`).join("<br>");
+   const costRows=x.costs.map(v=>`${v.label}: ${money(v.result.net)} net`).join("<br>");
+   return `<div class="trade"><b>${x.coin} · ${x.candles} completed candles</b><br><b>Development</b><br>Baseline: ${v16Fmt(x.devBase)}<br>Stricter: ${v16Fmt(x.devStrict)}<br><b>Holdout · baseline entries</b><br>${v16Fmt(x.testBase)}<br>Fees: ${money(x.testBase.fees)} · estimated slippage: ${money(x.testBase.slippage)}<br><b>Holdout · stricter entries</b><br>${v16Fmt(x.testStrict)}<br><b>Exit experiments · baseline entries</b><br>${exitRows}<br><b>Cost sensitivity · baseline entries</b><br>${costRows}<br><b>Holdout market conditions · baseline</b><br>${regimeRows}</div>`;
+  }).join("");
+  const summary=`<div class="trade"><b>V1.6 Diagnostics · ${timeframe}</b><br>Combined holdout baseline: ${holdBase.n} trades · ${holdBase.n?(holdBase.w/holdBase.n*100).toFixed(1):"0.0"}% wins · ${money(holdBase.net)} net · summed per-coin drawdown ${money(holdBase.dd)}<br>Combined holdout stricter: ${holdStrict.n} trades · ${holdStrict.n?(holdStrict.w/holdStrict.n*100).toFixed(1):"0.0"}% wins · ${money(holdStrict.net)} net · summed per-coin drawdown ${money(holdStrict.dd)}</div>`;
+  out.innerHTML=summary+cards+`<div class="foot">Method: same completed Binance spot candles, chronological 70/30 split, fresh $1,000 per coin/segment, one position per coin, 15-minute cooldown, two matching closed-candle signals, next-candle-open entry, 1% equity risk. Standard costs are 0.10% fee per side and 0.05% slippage per side; sensitivity compares zero costs and double costs. Exit variants are exploratory, not optimized recommendations. Regimes are simplified EMA trend plus ATR volatility buckets. Stops are checked before targets when both occur in one candle. Each result is historical, sample-limited, and not a forecast. V1.6 diagnostics do not write to paper-trading storage, change live signals, or resume paper trading.</div>`;
+ }catch(e){out.textContent="V1.6 diagnostics could not complete: "+e.message+". Your live engine and paper account remain unchanged."}
+ finally{btn.disabled=false;btn.textContent="Run V1.6 Diagnostics";}
+}
+
+function v17EntryPass(s, mode) {
+ if(!s || s.side==="WAIT") return false;
+ if(mode==="baseline") return true;
+ const aligned=s.side==="LONG"
+  ? s.e9>s.e21 && s.last>s.e9 && s.rv>52 && s.rv<70
+  : s.e9<s.e21 && s.last<s.e9 && s.rv<48 && s.rv>30;
+ if(mode==="volume") return s.volRatio>=1.30;
+ if(mode==="alignment") return aligned;
+ if(mode==="costAware") {
+  const estimatedRoundTripCost=0.003;
+  const targetMovePct=(s.atr*3)/s.last;
+  return aligned && s.volRatio>=1.30 && targetMovePct >= estimatedRoundTripCost*2;
+ }
+ return false;
+}
+function simulateV17(bars, mode, startIndex, endExclusive, feeRate=.001, slippageRate=.0005) {
+ const end=Math.min(endExclusive,bars.length);
+ let equity=1000,peak=1000,maxDD=0,lastExitTime=-Infinity;
+ const trades=[];
+ let i=Math.max(65,startIndex);
+ while(i<end-2) {
+  const a=backtestSignal(bars,i), b=backtestSignal(bars,i+1);
+  if(!v17EntryPass(a,mode)||!v17EntryPass(b,mode)||a.side!==b.side) {i++;continue;}
+  const entryBar=bars[i+2], side=b.side;
+  if(entryBar.t-lastExitTime<15*60*1000) {i++;continue;}
+  const rawEntry=entryBar.o;
+  const entry=rawEntry*(side==="LONG"?1+slippageRate:1-slippageRate);
+  const dist=Math.max(b.atr*1.5,entry*.002);
+  const stop=side==="LONG"?entry-dist:entry+dist;
+  const target=side==="LONG"?entry+dist*3:entry-dist*3;
+  const qty=(equity*.01)/dist;
+  const lastAllowed=Math.min(i+2+30,end-1);
+  let rawExit=bars[lastAllowed].c,exitIndex=lastAllowed;
+  for(let j=i+2;j<=lastAllowed;j++) {
+   const bar=bars[j];
+   const hitStop=side==="LONG"?bar.l<=stop:bar.h>=stop;
+   const hitTarget=side==="LONG"?bar.h>=target:bar.l<=target;
+   if(hitStop) {rawExit=stop;exitIndex=j;break;}
+   if(hitTarget) {rawExit=target;exitIndex=j;break;}
+  }
+  const exit=rawExit*(side==="LONG"?1-slippageRate:1+slippageRate);
+  const gross=(side==="LONG"?exit-entry:entry-exit)*qty;
+  const fees=(entry+exit)*qty*feeRate;
+  const net=gross-fees;
+  trades.push(net);
+  equity+=net;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+  lastExitTime=bars[exitIndex].t;
+  i=Math.max(i+1,exitIndex+1);
+ }
+ const wins=trades.filter(x=>x>0).length;
+ return {trades:trades.length,wins,winRate:trades.length?wins/trades.length*100:0,net:trades.reduce((a,b)=>a+b,0),maxDD,expectancy:trades.length?trades.reduce((a,b)=>a+b,0)/trades.length:0};
+}
+function v17Line(r) {
+ return `${r.trades} trades · ${r.winRate.toFixed(1)}% winners · ${money(r.net)} net · ${money(r.maxDD)} DD · ${money(r.expectancy)} expectancy/trade`;
+}
+async function runV17Research() {
+ const out=$("v17Result"),btn=$("runV17");
+ btn.disabled=true;btn.textContent="Research running…";
+ out.textContent="Downloading completed public candles for BTC, ETH and SOL…";
+ try {
+  const modes=[["Baseline","baseline"],["Volume confirmation ≥1.30×","volume"],["EMA + RSI alignment","alignment"],["Combined cost-aware filter","costAware"]];
+  const coins=[];
+  for(const item of symbols) {
+   const latest=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&limit=1000");
+   let older=[];
+   if(latest.length) older=await getJson(API+"/klines?symbol="+item.s+"&interval="+timeframe+"&endTime="+(Number(latest[0][0])-1)+"&limit=500");
+   const raw=[...older,...latest].sort((a,b)=>Number(a[0])-Number(b[0]));
+   const unique=raw.filter((k,i)=>i===0||Number(k[0])!==Number(raw[i-1][0]));
+   const bars=unique.slice(0,-1).map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
+   if(bars.length<180) throw new Error(item.short+" returned too few completed candles ("+bars.length+").");
+   const split=Math.floor(bars.length*.7);
+   const results=modes.map(([label,mode])=>({label,mode,dev:simulateV17(bars,mode,65,split),hold:simulateV17(bars,mode,split,bars.length)}));
+   const costs=[["Zero costs",0,0],["Current costs",.001,.0005],["Double costs",.002,.001]].map(([label,fee,slip])=>({label,result:simulateV17(bars,"costAware",split,bars.length,fee,slip)}));
+   coins.push({coin:item.short,candles:bars.length,results,costs});
+  }
+  const aggregate=key=>coins.reduce((acc,c)=>{const r=c.results.find(x=>x.mode===key).hold;acc.trades+=r.trades;acc.wins+=r.wins;acc.net+=r.net;acc.dd+=r.maxDD;return acc;},{trades:0,wins:0,net:0,dd:0});
+  const combined=aggregate("costAware");
+  const cards=coins.map(c=>{
+   const rows=c.results.map(r=>`<b>${r.label}</b><br>Development: ${v17Line(r.dev)}<br>Holdout: ${v17Line(r.hold)}`).join("<br><br>");
+   const costRows=c.costs.map(x=>`${x.label}: ${v17Line(x.result)}`).join("<br>");
+   return `<div class="trade"><b>${c.coin} · ${c.candles} completed candles</b><br>${rows}<br><b>Cost sensitivity · cost-aware holdout</b><br>${costRows}</div>`;
+  }).join("");
+  out.innerHTML=`<div class="trade"><b>V1.7 · ${timeframe} · chronological 70/30 split</b><br>Combined cost-aware holdout: ${combined.trades} trades · ${combined.trades?(combined.wins/combined.trades*100).toFixed(1):"0.0"}% winners · ${money(combined.net)} net · summed per-coin drawdown ${money(combined.dd)}</div>${cards}<div class="foot">Method: Binance public spot candles only; latest candle excluded as incomplete; up to 1,500 candles per coin; first 70% development and final 30% holdout. Each coin and segment starts with a separate $1,000 test balance. All variants require two consecutive matching completed-candle signals and enter at the next candle open. One open trade per coin; 15-minute cooldown; 1% equity risk; 1.5× ATR stop; 3× ATR target; 30-candle time exit; stop checked before target. Current estimated costs are 0.10% fee per side and 0.05% slippage per side. Cost-aware filter requires EMA/price/RSI alignment, volume at least 1.30× average, and a 3×ATR target distance at least twice the estimated 0.30% round-trip cost. Cost sensitivity reruns the cost-aware holdout with zero, current and double costs. Low trade counts are inconclusive; target at least 100 holdout trades overall and preferably 30+ per coin for a preliminary view. These tests do not prove future profitability. V1.7 research does not change live signals, paper account/history, or pause state.</div>`;
+ } catch(e) {
+  out.textContent="V1.7 research could not complete: "+e.message+". Live signals and the paper account remain unchanged.";
+ } finally {
+  btn.disabled=false;btn.textContent="Run V1.7 Cost-Aware Research";
+ }
+}
+$("runV17").addEventListener("click",runV17Research);
+
+$("runV16").addEventListener("click",runV16Diagnostics);
+
+$("runBacktest").addEventListener("click",runBacktest);
+$("timeTabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tf]");if(!b)return;if(timeframe===b.dataset.tf)return;timeframe=b.dataset.tf;localStorage.setItem("mia_timeframe_v1",timeframe);account.confirmations={};persist();renderTimeframe();refresh()});
+$("refresh").addEventListener("click",refresh);
+$("togglePaper").addEventListener("click",()=>{paperOn=!paperOn;localStorage.setItem("mia_paper_on_v2",String(paperOn));renderAccount()});
+$("reset").addEventListener("click",()=>{if(confirm("Reset the virtual account to $1,000 and erase its simulated trade history?")){account={balance:1000,closedPnl:0,positions:{},trades:[]};persist();renderAccount()}});
+renderTimeframe();renderAccount();renderSignalPanels();refresh();timer=setInterval(()=>refresh({processPaper:true}),30000);
+})();
+</script>
+</body>
+</html>
